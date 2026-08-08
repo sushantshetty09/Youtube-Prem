@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛡️ Integrated Media Controller
+# 🚀 YouTube Premium (Free Video Ad Blocker & Background Player)
 
-**A powerful, lightweight Manifest V3 cross-browser extension for network-level ad blocking, 60 FPS YouTube video ad auto-skipping, Media Session API synchronisation, and Picture-in-Picture controls.**
+**Enjoy the full YouTube Premium experience for FREE — Zero Video Ads, 60 FPS Instant Ad Skipping, System Media Session Integration, and Picture-in-Picture Floating Player.**
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-6366f1?style=for-the-badge&logo=googlechrome&logoColor=white)](file:///c:/Users/susha/OneDrive/Desktop/youtube%20premium/manifest.json)
 [![Browser Support](https://img.shields.io/badge/Browsers-Chrome%20|%20Edge%20|%20Firefox%20|%20Brave%20|%20Opera-10b981?style=for-the-badge)](file:///c:/Users/susha/OneDrive/Desktop/youtube%20premium/manifest.json)
@@ -12,39 +12,38 @@
 
 ---
 
-## 🎥 Demo Preview
+## 🎥 Live Feature Demo
 
-Watch the **Integrated Media Controller** in action, filtering network ads, skipping video ads instantly, and controlling media playback:
+Watch the extension automatically skip video ads instantly and manage background media playback directly on YouTube:
 
 <div align="center">
 
-<video src="https://raw.githubusercontent.com/sushantshetty09/youtube-premium/main/assets/demo.mp4" controls autoplay loop muted width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></video>
+<img src="assets/demo.gif" alt="YouTube Premium Free Extension Demo" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
 
 </div>
 
 ---
 
-## ✨ Key Features
+## ✨ YouTube Premium Features
 
-### 🛡️ Multi-Layer Network & DOM Ad Blocking
-- **Declarative Net Request (DNR)**: Blocks network requests to major ad networks, tracking servers, and telemetry endpoints (`doubleclick.net`, `googlesyndication.com`, `googleadservices.com`, `taboola.com`, etc.) at zero runtime CPU cost.
-- **Instant CSS Injection**: Hides ad banners, sponsored feed items, and promoted cards at 0ms latency before they ever render on screen.
+### ⚡ Instant YouTube Video Ad Auto-Skipper
+- **Zero Video Ads**: Automatically eliminates YouTube pre-roll, mid-roll, and pop-up video ads.
+- **0ms Visual Ad Flash**: Masks ad video frames during playback transitions so you never see ad countdowns, banners, or badges.
+- **Native Player API Execution**: Calls `moviePlayer.skipAd()` directly on YouTube's player engine to jump straight to your video.
 
-### ⚡ 60 FPS YouTube In-Stream Video Ad Skipper
-- **Zero-Ad Visual Flash**: Automatically masks ad video frames during transitions so you never see ad countdowns, badges, or banners.
-- **Native Player API Execution**: Invokes `moviePlayer.skipAd()` directly on YouTube's player engine.
-- **Instant Completion**: Auto-clicks skip buttons (`.ytp-ad-skip-button`), mutes ad audio, and jumps playback directly to the main video.
+### 🎧 OS Media Key & Background Playback Sync
+- **System Media Controls**: Synchronises video title, channel name, album metadata, and high-resolution thumbnail artwork with Windows, macOS, and Linux lock screen control widgets and keyboard media keys via the **Media Session API**.
+- **Full Media Controls**: Supports play, pause, stop, previous track, next track, seek backward, seek forward, and position seeking.
 
-### 🎵 System Media Session API Synchronisation
-- **OS Control Center Integration**: Synchronises video title, channel/artist, album info, and high-resolution artwork (96px to 512px) with operating system media keys and control widgets.
-- **Playback Control Handlers**: Responds to play, pause, stop, previous, next, seek backward, seek forward, and seek-to events across media players.
+### 🖼️ Floating Picture-in-Picture (PiP) Window
+- **Watch Anywhere**: Watch YouTube videos in a floating, movable window while switching tabs or working in other desktop applications.
+- **Injected Overlay & Popup Shortcut**: Injects a clean glassmorphism **PiP** button on YouTube video players plus a 1-click trigger in the extension popup.
 
-### 🖼️ Floating Picture-in-Picture (PiP) Controls
-- **Injected Video Overlay**: Injects a sleek, glassmorphic **PiP** button on web `<video>` elements.
-- **One-Click Popup Trigger**: Toggle Picture-in-Picture directly from the extension popup window.
+### 🛡️ Declarative Net Request Network Ad Blocking
+- **Network Level Ad Blocking**: Built on Chrome's Manifest V3 `declarativeNetRequest` API to block network requests to Google ad servers (`doubleclick.net`, `googlesyndication.com`, `googleadservices.com`, `youtube.com/api/stats/ads*`, `youtube.com/pagead/*`).
 
-### 🎛️ Per-Site Customisation & Toggle
-- **Per-Site Ad Blocking Overrides**: Quickly toggle ad blocking on/off for specific domains using dynamic DNR rules and `chrome.storage.local`.
+### 🎛️ 1-Click Site Customisation
+- Easily toggle ad blocking on/off for YouTube directly from the extension popup UI.
 
 ---
 
@@ -55,27 +54,27 @@ Watch the **Integrated Media Controller** in action, filtering network ads, skip
 | **Framework** | Manifest V3 | Standard WebExtension API specification |
 | **Network Engine** | `declarativeNetRequest` | Zero-latency network packet filtering |
 | **Background Worker** | Service Worker (`background.js`) | Ephemeral state manager with dynamic DNR rules |
-| **Content Engine** | Vanilla JS (`content.js`) | 60 FPS ad skipper, Media Session API, PiP injection |
+| **Content Engine** | Vanilla JS (`content.js`) | 60 FPS YouTube ad skipper, Media Session API, PiP injection |
 | **Popup UI** | HTML / Vanilla CSS / JS | Modern dark-mode popup interface |
 
 ---
 
 ## 🚀 Quick Installation Guide
 
-### Loading Unpacked in Chrome / Edge / Brave / Opera
+### Loading Unpacked in Chrome / Edge / Brave / Opera / Vivaldi
 
 1. Clone or download this repository:
    ```bash
    git clone https://github.com/sushantshetty09/youtube-premium.git
    ```
-2. Open your browser's extensions management page:
+2. Open your browser's extensions page:
    - **Chrome**: `chrome://extensions`
    - **Edge**: `edge://extensions`
    - **Brave**: `brave://extensions`
-3. Enable **Developer mode** using the toggle in the top-right corner.
+3. Enable **Developer mode** using the toggle switch in the top-right corner.
 4. Click **Load unpacked**.
 5. Select the project root folder (`youtube-premium`).
-6. Navigate to YouTube or any video streaming website to enjoy ad-free playback and media controls!
+6. Open YouTube and enjoy an ad-free YouTube Premium experience for FREE!
 
 ### Loading in Mozilla Firefox
 
@@ -98,21 +97,22 @@ youtube-premium/
 ├── popup.js              # Extension popup controller
 ├── icons/                # Extension icons (16px, 48px, 128px)
 └── assets/
-    └── demo.mp4           # Demo video preview
+    ├── demo.gif           # Animated demo preview (Plays inline on GitHub)
+    └── demo.mp4           # Full HD demo video
 ```
 
 ---
 
 ## 🔒 Privacy & Security
 
-- **Zero Telemetry**: No user tracking, zero data collection, no analytics scripts.
-- **Local State Only**: All site customisations stay on your local device via `chrome.storage.local`.
-- **Pure Native Code**: Zero external framework dependencies or remote code execution.
+- **100% Private**: Zero user tracking, zero analytics, zero data collection.
+- **Local Storage**: Storage configuration stays strictly local via `chrome.storage.local`.
+- **Pure Native JS**: Zero external framework dependencies or remote script execution.
 
 ---
 
 <div align="center">
 
-Created with ❤️ by **Integrated Media Controller Team**
+Created with ❤️ for an **Ad-Free YouTube Experience**
 
 </div>
