@@ -81,7 +81,7 @@ Watch the extension in action utilizing floating Picture-in-Picture window contr
 
 1. Clone or download this repository:
    ```bash
-   git clone https://github.com/sushantshetty09/youtube-premium.git
+   git clone https://github.com/sushantshetty09/Youtube-Prem.git
    ```
 2. Open your browser's extensions page:
    - **Chrome**: `chrome://extensions`
@@ -114,9 +114,7 @@ Watch the extension in action utilizing floating Picture-in-Picture window contr
 ├── icons/                # Extension icons (16px, 48px, 128px)
 └── assets/
     ├── demo.gif           # Demo preview 1 (Ad skipper)
-    ├── demo.mp4           # Full HD demo 1 video
-    ├── demo1.gif          # Demo preview 2 (PiP & Media Session)
-    └── demo1.mp4          # Full HD demo 2 video
+    └── demo1.gif          # Demo preview 2 (PiP & Media Session)
 ```
 
 ---
