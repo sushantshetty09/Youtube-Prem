@@ -21,14 +21,22 @@
 ### Demo 1: Auto-Skipping Video Ads & Instant Ad Filtering
 Watch the extension automatically eliminate YouTube pre-roll, mid-roll, and pop-up video ads instantaneously:
 
-![Ad Blocker & Video Ad Skipper Demo](assets/demo.gif)
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/sushantshetty09/Youtube-Prem/web-application/assets/demo.gif" alt="Ad Blocker & Video Ad Skipper Demo" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+</div>
 
 <br>
 
 ### Demo 2: Picture-in-Picture Mode & Media Session Controls
 Watch the extension in action utilizing floating Picture-in-Picture window controls and system media key synchronisation:
 
-![Picture in Picture and Media Session Controller Demo](assets/demo1.gif)
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/sushantshetty09/Youtube-Prem/web-application/assets/demo1.gif" alt="Picture in Picture and Media Session Controller Demo" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+</div>
 
 ---
 
