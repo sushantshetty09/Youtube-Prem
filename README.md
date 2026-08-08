@@ -14,13 +14,11 @@
 
 ## 🎥 Demo Preview
 
-Watch the **Integrated Media Controller** in action, seamlessly filtering network ads, skipping video ads instantly, and managing media playback controls:
+Watch the **Integrated Media Controller** in action, filtering network ads, skipping video ads instantly, and controlling media playback:
 
 <div align="center">
 
-https://github.com/user-attachments/assets/demo.mp4
-
-<video src="assets/demo.mp4" controls="controls" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></video>
+<video src="https://raw.githubusercontent.com/sushantshetty09/youtube-premium/main/assets/demo.mp4" controls autoplay loop muted width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></video>
 
 </div>
 
