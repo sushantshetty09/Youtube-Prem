@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🚀 YouTube Premium (Free Video Ad Blocker & Background Player)
+# 🛡️ Ad Blocker & Media Controller for YouTube
 
-**Enjoy the full YouTube Premium experience for FREE — Zero Video Ads, 60 FPS Instant Ad Skipping, System Media Session Integration, and Picture-in-Picture Floating Player.**
+**An independent open-source Manifest V3 extension providing network ad blocking, 60 FPS YouTube video ad auto-skipping, Media Session API synchronisation, and Picture-in-Picture controls.**
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-6366f1?style=for-the-badge&logo=googlechrome&logoColor=white)](file:///c:/Users/susha/OneDrive/Desktop/youtube%20premium/manifest.json)
 [![Browser Support](https://img.shields.io/badge/Browsers-Chrome%20|%20Edge%20|%20Firefox%20|%20Brave%20|%20Opera-10b981?style=for-the-badge)](file:///c:/Users/susha/OneDrive/Desktop/youtube%20premium/manifest.json)
@@ -12,19 +12,23 @@
 
 ---
 
+> ⚠️ **Trademark Disclaimer**: *YouTube™ is a registered trademark of Google LLC. This extension is an independent open-source tool created strictly for educational, personal customization, and productivity purposes. It is NOT affiliated with, sponsored by, authorized by, or endorsed by Google LLC or YouTube in any way.*
+
+---
+
 ## 🎥 Live Feature Demo
 
 Watch the extension automatically skip video ads instantly and manage background media playback directly on YouTube:
 
 <div align="center">
 
-<img src="assets/demo.gif" alt="YouTube Premium Free Extension Demo" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+<img src="assets/demo.gif" alt="Ad Blocker & Media Controller Extension Demo" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
 
 </div>
 
 ---
 
-## ✨ YouTube Premium Features
+## ✨ Core Features
 
 ### ⚡ Instant YouTube Video Ad Auto-Skipper
 - **Zero Video Ads**: Automatically eliminates YouTube pre-roll, mid-roll, and pop-up video ads.
@@ -37,13 +41,13 @@ Watch the extension automatically skip video ads instantly and manage background
 
 ### 🖼️ Floating Picture-in-Picture (PiP) Window
 - **Watch Anywhere**: Watch YouTube videos in a floating, movable window while switching tabs or working in other desktop applications.
-- **Injected Overlay & Popup Shortcut**: Injects a clean glassmorphism **PiP** button on YouTube video players plus a 1-click trigger in the extension popup.
+- **Injected Overlay & Popup Shortcut**: Injects a clean glassmorphism **PiP** button on video players plus a 1-click trigger in the extension popup.
 
 ### 🛡️ Declarative Net Request Network Ad Blocking
 - **Network Level Ad Blocking**: Built on Chrome's Manifest V3 `declarativeNetRequest` API to block network requests to Google ad servers (`doubleclick.net`, `googlesyndication.com`, `googleadservices.com`, `youtube.com/api/stats/ads*`, `youtube.com/pagead/*`).
 
 ### 🎛️ 1-Click Site Customisation
-- Easily toggle ad blocking on/off for YouTube directly from the extension popup UI.
+- Easily toggle ad blocking on/off for specific sites directly from the extension popup UI.
 
 ---
 
@@ -73,8 +77,8 @@ Watch the extension automatically skip video ads instantly and manage background
    - **Brave**: `brave://extensions`
 3. Enable **Developer mode** using the toggle switch in the top-right corner.
 4. Click **Load unpacked**.
-5. Select the project root folder (`youtube-premium`).
-6. Open YouTube and enjoy an ad-free YouTube Premium experience for FREE!
+5. Select the project root folder.
+6. Open YouTube and enjoy an ad-free video experience!
 
 ### Loading in Mozilla Firefox
 
@@ -87,7 +91,7 @@ Watch the extension automatically skip video ads instantly and manage background
 ## 📁 Repository Structure
 
 ```
-youtube-premium/
+.
 ├── manifest.json         # Extension Manifest V3 configuration
 ├── rules.json            # Static Declarative Net Request block rules
 ├── background.js         # Ephemeral background service worker
@@ -113,6 +117,6 @@ youtube-premium/
 
 <div align="center">
 
-Created with ❤️ for an **Ad-Free YouTube Experience**
+Created with ❤️ by **Ad Blocker & Media Controller Contributors**
 
 </div>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Integrated Media Controller",
+  "name": "Ad Blocker & Media Controller for YouTube",
   "version": "1.0.1",
-  "description": "Cross-browser extension providing network-level ad blocking, Media Session API playback synchronisation, and Picture-in-Picture control.",
+  "description": "Independent open-source extension providing network-level ad blocking, 60 FPS video ad auto-skipping, Media Session API playback synchronisation, and Picture-in-Picture control.",
   "permissions": [
     "declarativeNetRequest",
     "activeTab",
