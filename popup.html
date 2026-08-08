@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integrated Media Controller</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Media Controller</h1>
+        </div>
+      </div>
+      <div id="domain-badge" class="domain-badge">Active Site</div>
+    </header>
+
+    <main class="content">
+      <!-- Section 1: Ad Block -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <h2>Ad Block</h2>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="control-row">
+            <label for="adblock-toggle" class="control-label">Block ads on this site</label>
+            <label class="switch">
+              <input type="checkbox" id="adblock-toggle" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Picture-in-Picture -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <rect x="11" y="9" width="9" height="6" rx="1" fill="currentColor" opacity="0.4"/>
+            </svg>
+            <h2>Picture-in-Picture</h2>
+          </div>
+        </div>
+        <div class="card-body">
+          <button id="pip-button" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <rect x="11" y="9" width="9" height="6" rx="1" fill="currentColor"/>
+            </svg>
+            Toggle Picture-in-Picture
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
