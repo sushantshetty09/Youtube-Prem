@@ -9,6 +9,8 @@
 
   const extensionAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
+  let isAdBlockEnabledForSite = true;
+
   // ---------------------------------------------------------------------------
   // 1. Instant CSS Injection Ad Hiding
   // ---------------------------------------------------------------------------
@@ -63,6 +65,7 @@
   `;
 
   function injectAdBlockStyles() {
+    if (!isAdBlockEnabledForSite) return;
     if (document.getElementById('imc-adblock-styles')) return;
     const style = document.createElement('style');
     style.id = 'imc-adblock-styles';
@@ -70,9 +73,33 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
-  injectAdBlockStyles();
+  function removeAdBlockStyles() {
+    const style = document.getElementById('imc-adblock-styles');
+    if (style) {
+      style.remove();
+    }
+  }
+
+  function checkSiteAdBlockStatus() {
+    extensionAPI.runtime.sendMessage(
+      { action: 'GET_SITE_STATUS', domain: window.location.hostname },
+      (response) => {
+        if (extensionAPI.runtime.lastError) return;
+        if (response && typeof response.enabled === 'boolean') {
+          isAdBlockEnabledForSite = response.enabled;
+          if (isAdBlockEnabledForSite) {
+            injectAdBlockStyles();
+          } else {
+            removeAdBlockStyles();
+          }
+        }
+      }
+    );
+  }
+
+  checkSiteAdBlockStatus();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectAdBlockStyles, { once: true });
+    document.addEventListener('DOMContentLoaded', checkSiteAdBlockStatus, { once: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -83,7 +110,7 @@
   let wasAdMuted = false;
 
   function instantSkipYouTubeAd() {
-    if (!isYouTube) return;
+    if (!isYouTube || !isAdBlockEnabledForSite) return;
     const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
     if (!moviePlayer) return;
 
@@ -146,10 +173,14 @@
         }
       }
     } else {
-      if (video && wasAdMuted) {
-        video.muted = false;
-        video.playbackRate = 1.0;
-        wasAdMuted = false;
+      if (video) {
+        if (wasAdMuted) {
+          video.muted = false;
+          wasAdMuted = false;
+        }
+        if (video.playbackRate > 2.0) {
+          video.playbackRate = 1.0;
+        }
       }
     }
   }
@@ -284,7 +315,11 @@
 
   function injectPipButton(video) {
     if (!document.pictureInPictureEnabled || !video) return;
-    if (video.dataset.pipButtonInjected === 'true') return;
+
+    const parent = video.parentElement || video.parentNode;
+    if (!parent) return;
+
+    if (parent.querySelector('.imc-pip-toggle-btn')) return;
 
     video.dataset.pipButtonInjected = 'true';
 
@@ -350,14 +385,11 @@
       togglePictureInPicture(video);
     });
 
-    const parent = video.parentElement || video.parentNode;
-    if (parent) {
-      const computedPos = window.getComputedStyle(parent).position;
-      if (computedPos === 'static') {
-        parent.style.position = 'relative';
-      }
-      parent.appendChild(button);
+    const computedPos = window.getComputedStyle(parent).position;
+    if (computedPos === 'static') {
+      parent.style.position = 'relative';
     }
+    parent.appendChild(button);
 
     video.addEventListener('enterpictureinpicture', () => {
       button.classList.add('imc-active');
@@ -373,19 +405,24 @@
   }
 
   function initMediaController(targetContainer) {
-    const root = targetContainer || document;
-    const videos = root.querySelectorAll ? root.querySelectorAll('video') : [];
-    if (videos.length > 0) {
+    if (targetContainer && targetContainer.nodeType === 1) {
+      if (targetContainer.matches && targetContainer.matches('video')) {
+        setupMediaSession(targetContainer);
+        injectPipButton(targetContainer);
+      }
+      if (targetContainer.querySelectorAll) {
+        const videos = targetContainer.querySelectorAll('video');
+        videos.forEach((v) => {
+          setupMediaSession(v);
+          injectPipButton(v);
+        });
+      }
+    } else {
+      const videos = document.querySelectorAll('video');
       videos.forEach((video) => {
         setupMediaSession(video);
         injectPipButton(video);
       });
-    } else {
-      const video = document.querySelector('video');
-      if (video) {
-        setupMediaSession(video);
-        injectPipButton(video);
-      }
     }
   }
 
@@ -398,6 +435,7 @@
   let mutationCount = 0;
   let lastResetTime = Date.now();
   const MAX_MUTATIONS_PER_SEC = 50;
+  const pendingNodes = new Set();
 
   function debounce(func, wait) {
     let timeout;
@@ -407,22 +445,28 @@
     };
   }
 
-  const debouncedInit = debounce((nodesToCheck) => {
+  const debouncedInit = debounce(() => {
     if (!videoObserver) return;
     
     try {
       videoObserver.disconnect();
     } catch (e) {}
 
-    if (nodesToCheck && nodesToCheck.length > 0) {
-      nodesToCheck.forEach((node) => {
-        if (node.nodeType === 1) {
-          initMediaController(node);
-        }
-      });
-    } else {
-      initMediaController();
-    }
+    const nodesToProcess = Array.from(pendingNodes);
+    pendingNodes.clear();
+
+    nodesToProcess.forEach((node) => {
+      initMediaController(node);
+    });
+
+    // Fallback scan document videos
+    const videos = document.querySelectorAll('video');
+    videos.forEach((video) => {
+      if (video.dataset.pipButtonInjected !== 'true' || video.dataset.mediaSessionInjected !== 'true') {
+        setupMediaSession(video);
+        injectPipButton(video);
+      }
+    });
 
     if (document.body && videoObserver) {
       try {
@@ -448,20 +492,21 @@
       return;
     }
 
-    let addedElements = [];
+    let hasAddedElements = false;
     for (let i = 0; i < mutations.length; i++) {
       const added = mutations[i].addedNodes;
       if (added && added.length > 0) {
         for (let j = 0; j < added.length; j++) {
           if (added[j].nodeType === 1) {
-            addedElements.push(added[j]);
+            pendingNodes.add(added[j]);
+            hasAddedElements = true;
           }
         }
       }
     }
 
-    if (addedElements.length > 0) {
-      debouncedInit(addedElements);
+    if (hasAddedElements) {
+      debouncedInit();
     }
   });
 
@@ -474,7 +519,9 @@
   // ---------------------------------------------------------------------------
 
   extensionAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message && message.action === 'TOGGLE_PIP') {
+    if (!message) return false;
+
+    if (message.action === 'TOGGLE_PIP') {
       const video = document.querySelector('video');
       if (video) {
         togglePictureInPicture(video);
@@ -482,8 +529,22 @@
       } else {
         sendResponse({ success: false, reason: 'No video element found' });
       }
+      return true;
     }
-    return true;
+
+    if (message.action === 'ADBLOCK_STATE_CHANGED') {
+      isAdBlockEnabledForSite = message.enabled;
+      if (isAdBlockEnabledForSite) {
+        injectAdBlockStyles();
+      } else {
+        removeAdBlockStyles();
+      }
+      sendResponse({ success: true });
+      return true;
+    }
+
+    return false;
   });
 })();
+
 

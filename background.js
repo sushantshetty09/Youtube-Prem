@@ -54,7 +54,10 @@ async function toggleAdBlockForSite(domain, enabled) {
         id: ruleId,
         priority: 10,
         action: { type: 'allowAllRequests' },
-        condition: { initiatorDomains: [domain] }
+        condition: {
+          initiatorDomains: [domain],
+          resourceTypes: ['main_frame', 'sub_frame']
+        }
       };
 
       await extensionAPI.declarativeNetRequest.updateDynamicRules({
@@ -63,6 +66,23 @@ async function toggleAdBlockForSite(domain, enabled) {
       });
       console.log(`Ad blocking disabled for domain: ${domain}`);
     }
+  }
+
+  // Notify tabs about ad block status change
+  try {
+    extensionAPI.tabs.query({}, (tabs) => {
+      if (!tabs) return;
+      tabs.forEach((tab) => {
+        if (tab.id && tab.url && tab.url.includes(domain)) {
+          extensionAPI.tabs.sendMessage(tab.id, {
+            action: 'ADBLOCK_STATE_CHANGED',
+            enabled: enabled
+          }).catch(() => {});
+        }
+      });
+    });
+  } catch (err) {
+    console.warn('Failed to notify tabs of ad block change:', err);
   }
 }
 
@@ -93,3 +113,4 @@ extensionAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+
