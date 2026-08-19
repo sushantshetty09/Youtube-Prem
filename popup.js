@@ -65,7 +65,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     );
   });
 
-  pipButton.addEventListener('click', () => {
+  pipButton.addEventListener('click', (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!activeTabId) return;
 
     extensionAPI.tabs.sendMessage(activeTabId, { action: 'TOGGLE_PIP' }, (response) => {
@@ -75,3 +79,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 });
+

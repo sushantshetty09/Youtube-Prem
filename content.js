@@ -72,16 +72,18 @@
 
   injectAdBlockStyles();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', injectAdBlockStyles);
+    document.addEventListener('DOMContentLoaded', injectAdBlockStyles, { once: true });
   }
 
   // ---------------------------------------------------------------------------
-  // 2. High-Speed YouTube Video Ad Bypass Engine
+  // 2. High-Speed YouTube Video Ad Bypass Engine (Efficient Throttled Loop)
   // ---------------------------------------------------------------------------
 
+  const isYouTube = window.location.hostname.includes('youtube.com');
   let wasAdMuted = false;
 
   function instantSkipYouTubeAd() {
+    if (!isYouTube) return;
     const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
     if (!moviePlayer) return;
 
@@ -152,12 +154,9 @@
     }
   }
 
-  function runAdBypassLoop() {
-    instantSkipYouTubeAd();
-    requestAnimationFrame(runAdBypassLoop);
+  if (isYouTube) {
+    setInterval(instantSkipYouTubeAd, 250);
   }
-  requestAnimationFrame(runAdBypassLoop);
-  setInterval(instantSkipYouTubeAd, 50);
 
   // ---------------------------------------------------------------------------
   // 3. Media Session API Synchronisation
@@ -195,6 +194,8 @@
 
   function setupMediaSession(video) {
     if (!('mediaSession' in navigator) || !video) return;
+    if (video.dataset.mediaSessionInjected === 'true') return;
+    video.dataset.mediaSessionInjected = 'true';
 
     try {
       const meta = getPageMetadata();
@@ -288,6 +289,7 @@
     video.dataset.pipButtonInjected = 'true';
 
     const button = document.createElement('button');
+    button.type = 'button';
     button.className = 'imc-pip-toggle-btn';
     button.title = 'Toggle Picture-in-Picture mode';
     button.setAttribute('aria-label', 'Toggle Picture-in-Picture mode');
@@ -333,9 +335,18 @@
       button.style.transform = 'scale(1)';
     });
 
+    const stopAndPrevent = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    button.addEventListener('mousedown', stopAndPrevent);
+    button.addEventListener('mouseup', stopAndPrevent);
+    button.addEventListener('pointerdown', stopAndPrevent);
     button.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+      stopAndPrevent(e);
       togglePictureInPicture(video);
     });
 
@@ -361,22 +372,106 @@
     });
   }
 
-  function initMediaController() {
-    const video = document.querySelector('video');
-    if (!video) return;
-
-    setupMediaSession(video);
-    injectPipButton(video);
+  function initMediaController(targetContainer) {
+    const root = targetContainer || document;
+    const videos = root.querySelectorAll ? root.querySelectorAll('video') : [];
+    if (videos.length > 0) {
+      videos.forEach((video) => {
+        setupMediaSession(video);
+        injectPipButton(video);
+      });
+    } else {
+      const video = document.querySelector('video');
+      if (video) {
+        setupMediaSession(video);
+        injectPipButton(video);
+      }
+    }
   }
 
   initMediaController();
 
-  const videoObserver = new MutationObserver(() => {
-    initMediaController();
+  // ---------------------------------------------------------------------------
+  // 5. Robust Debounced & Circuit-Protected MutationObserver
+  // ---------------------------------------------------------------------------
+
+  let mutationCount = 0;
+  let lastResetTime = Date.now();
+  const MAX_MUTATIONS_PER_SEC = 50;
+
+  function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  const debouncedInit = debounce((nodesToCheck) => {
+    if (!videoObserver) return;
+    
+    try {
+      videoObserver.disconnect();
+    } catch (e) {}
+
+    if (nodesToCheck && nodesToCheck.length > 0) {
+      nodesToCheck.forEach((node) => {
+        if (node.nodeType === 1) {
+          initMediaController(node);
+        }
+      });
+    } else {
+      initMediaController();
+    }
+
+    if (document.body && videoObserver) {
+      try {
+        videoObserver.observe(document.body, { childList: true, subtree: true });
+      } catch (e) {}
+    }
+  }, 200);
+
+  let videoObserver = new MutationObserver((mutations) => {
+    const now = Date.now();
+    if (now - lastResetTime > 1000) {
+      mutationCount = 0;
+      lastResetTime = now;
+    }
+    mutationCount++;
+
+    if (mutationCount > MAX_MUTATIONS_PER_SEC) {
+      console.warn('Integrated Media Controller: MutationObserver circuit breaker triggered (>50 mutations/sec). Disconnecting observer to prevent browser hang.');
+      if (videoObserver) {
+        videoObserver.disconnect();
+        videoObserver = null;
+      }
+      return;
+    }
+
+    let addedElements = [];
+    for (let i = 0; i < mutations.length; i++) {
+      const added = mutations[i].addedNodes;
+      if (added && added.length > 0) {
+        for (let j = 0; j < added.length; j++) {
+          if (added[j].nodeType === 1) {
+            addedElements.push(added[j]);
+          }
+        }
+      }
+    }
+
+    if (addedElements.length > 0) {
+      debouncedInit(addedElements);
+    }
   });
+
   if (document.body) {
     videoObserver.observe(document.body, { childList: true, subtree: true });
   }
+
+  // ---------------------------------------------------------------------------
+  // 6. Message Listener
+  // ---------------------------------------------------------------------------
 
   extensionAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message && message.action === 'TOGGLE_PIP') {
@@ -391,3 +486,4 @@
     return true;
   });
 })();
+
