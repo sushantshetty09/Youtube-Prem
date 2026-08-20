@@ -16,11 +16,6 @@
   // ---------------------------------------------------------------------------
 
   const AD_CSS_RULES = `
-    .ad-showing video,
-    .ad-interrupting video {
-      opacity: 0 !important;
-    }
-
     .ad-showing .ytp-ad-player-overlay,
     .ad-showing .ytp-ad-text,
     .ad-showing .ytp-ad-preview-text,
@@ -61,6 +56,43 @@
       pointer-events: none !important;
       height: 0 !important;
       width: 0 !important;
+    }
+
+    /* In-Page Floating Picture-in-Picture (Same-Tab Overlay) */
+    .imc-inpage-pip {
+      position: fixed !important;
+      bottom: 24px !important;
+      right: 24px !important;
+      width: 480px !important;
+      height: 270px !important;
+      z-index: 2147483647 !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75) !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
+      transition: width 0.25s ease, height 0.25s ease, transform 0.25s ease !important;
+    }
+
+    .imc-inpage-pip .html5-video-container,
+    .imc-inpage-pip .html5-main-video,
+    .imc-inpage-pip video {
+      width: 100% !important;
+      height: 100% !important;
+      top: 0 !important;
+      left: 0 !important;
+      object-fit: contain !important;
+    }
+
+    .imc-inpage-pip .ytp-chrome-bottom {
+      width: 100% !important;
+      left: 0 !important;
+    }
+
+    .imc-inpage-pip .ytp-caption-window-container,
+    .imc-inpage-pip .caption-window {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      z-index: 2147483647 !important;
     }
   `;
 
@@ -133,11 +165,8 @@
         .ytp-ad-skip-button,
         .ytp-ad-skip-button-modern,
         .ytp-skip-ad-button,
-        .ytp-ad-skip-button-slot,
         button.ytp-ad-skip-button-icon,
-        .ytp-ad-skip-button-container,
-        .ytp-ad-skip-button-text,
-        ytd-ad-slot-renderer button
+        .ytp-ad-skip-button-text
       `);
 
       skipButtons.forEach((btn) => {
@@ -167,19 +196,30 @@
             video.currentTime = video.duration - 0.01;
           }
           video.playbackRate = 16.0;
-          video.dispatchEvent(new Event('ended'));
         } catch (err) {
           console.warn('Instant video ad bypass error:', err);
         }
       }
     } else {
       if (video) {
+        let shouldResumePlay = false;
         if (wasAdMuted) {
           video.muted = false;
           wasAdMuted = false;
+          shouldResumePlay = true;
         }
         if (video.playbackRate > 2.0) {
           video.playbackRate = 1.0;
+          shouldResumePlay = true;
+        }
+        if (shouldResumePlay && video.paused) {
+          try {
+            if (typeof moviePlayer.playVideo === 'function') {
+              moviePlayer.playVideo();
+            } else {
+              video.play().catch(() => {});
+            }
+          } catch (e) {}
         }
       }
     }
@@ -295,28 +335,81 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Picture-in-Picture (PiP) Controls
+  // 4. Picture-in-Picture (PiP) Controls & Live Translation Support
   // ---------------------------------------------------------------------------
 
-  function togglePictureInPicture(video) {
-    if (!document.pictureInPictureEnabled) return;
+  function enableLiveTranslationTextTrack(video) {
     if (!video) return;
+    let track = Array.from(video.textTracks || []).find((t) => t.label === 'Live Translation Sync');
+    if (!track) {
+      try {
+        track = video.addTextTrack('captions', 'Live Translation Sync', 'en');
+        track.mode = 'showing';
+      } catch (e) {
+        return;
+      }
+    } else {
+      track.mode = 'showing';
+    }
 
-    if (document.pictureInPictureElement) {
-      document.exitPictureInPicture().catch((error) => {
-        console.warn('Error exiting Picture-in-Picture mode:', error);
+    const captionContainer = document.querySelector('.ytp-caption-window-container') || document.querySelector('.caption-window');
+    if (captionContainer && !video.dataset.captionSyncActive) {
+      video.dataset.captionSyncActive = 'true';
+      const captionObserver = new MutationObserver(() => {
+        const text = captionContainer.innerText || captionContainer.textContent;
+        if (text && text.trim().length > 0) {
+          if (track.cues) {
+            Array.from(track.cues).forEach((c) => {
+              try { track.removeCue(c); } catch (e) {}
+            });
+          }
+          const now = video.currentTime || 0;
+          try {
+            const cue = new VTTCue(now, now + 4, text.trim());
+            track.addCue(cue);
+          } catch (e) {}
+        }
       });
-    } else if (video.readyState !== 0) {
-      video.requestPictureInPicture().catch((error) => {
-        console.warn('Error requesting Picture-in-Picture mode:', error);
-      });
+      captionObserver.observe(captionContainer, { childList: true, subtree: true, characterData: true });
     }
   }
+
+  function togglePictureInPicture(video) {
+    if (!video) return;
+
+    const playerContainer = video.closest ? (video.closest('#movie_player') || video.closest('.html5-video-player') || video.parentElement) : video.parentElement;
+    if (!playerContainer) return;
+
+    const isCurrentlyPip = playerContainer.classList.contains('imc-inpage-pip');
+
+    if (isCurrentlyPip) {
+      playerContainer.classList.remove('imc-inpage-pip');
+      const pipBtn = playerContainer.querySelector('.imc-pip-toggle-btn');
+      if (pipBtn) {
+        pipBtn.classList.remove('imc-active');
+      }
+    } else {
+      // Exit any standard OS PiP if active
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(() => {});
+      }
+
+      playerContainer.classList.add('imc-inpage-pip');
+      const pipBtn = playerContainer.querySelector('.imc-pip-toggle-btn');
+      if (pipBtn) {
+        pipBtn.classList.add('imc-active');
+      }
+    }
+  }
+
 
   function injectPipButton(video) {
     if (!document.pictureInPictureEnabled || !video) return;
 
-    const parent = video.parentElement || video.parentNode;
+    // Do NOT inject inside YouTube miniplayer
+    if (video.closest && video.closest('ytd-miniplayer, .ytp-miniplayer, #miniplayer')) return;
+
+    const parent = video.closest ? (video.closest('#movie_player') || video.closest('.html5-video-player') || video.parentElement) : (video.parentElement || video.parentNode);
     if (!parent) return;
 
     if (parent.querySelector('.imc-pip-toggle-btn')) return;
@@ -374,16 +467,20 @@
       if (e) {
         e.preventDefault();
         e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+          e.stopImmediatePropagation();
+        }
       }
     };
 
-    button.addEventListener('mousedown', stopAndPrevent);
-    button.addEventListener('mouseup', stopAndPrevent);
-    button.addEventListener('pointerdown', stopAndPrevent);
+    ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick'].forEach((evtType) => {
+      button.addEventListener(evtType, stopAndPrevent, { capture: true });
+    });
+
     button.addEventListener('click', (e) => {
       stopAndPrevent(e);
       togglePictureInPicture(video);
-    });
+    }, { capture: true });
 
     const computedPos = window.getComputedStyle(parent).position;
     if (computedPos === 'static') {
