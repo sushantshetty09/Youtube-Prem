@@ -516,6 +516,50 @@
     }
   }
 
+  /**
+   * Called when PiP is triggered from the popup button (no user gesture).
+   * Native requestPictureInPicture() requires a user gesture and will throw
+   * NotAllowedError in a message handler context, so we skip it entirely and
+   * go straight to YouTube-specific or in-page overlay fallbacks.
+   */
+  function minimizeFromPopup(video) {
+    // 1. YouTube: click the built-in miniplayer button (no gesture needed)
+    if (isYouTube) {
+      const ytMiniplayerBtn = document.querySelector('.ytp-miniplayer-button');
+      if (ytMiniplayerBtn) {
+        try { ytMiniplayerBtn.click(); return; } catch (e) {}
+      }
+      // 2. YouTube: dispatch the 'i' keyboard shortcut to the player
+      const moviePlayer = document.getElementById('movie_player');
+      if (moviePlayer) {
+        try {
+          moviePlayer.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'i', code: 'KeyI', keyCode: 73, which: 73,
+            bubbles: true, cancelable: true
+          }));
+          return;
+        } catch (e) {}
+      }
+    }
+
+    // 3. Fallback: toggle the in-page floating overlay
+    if (!video) return;
+    const playerContainer = video.closest
+      ? (video.closest('#movie_player') || video.closest('.html5-video-player') || video.parentElement)
+      : video.parentElement;
+    if (!playerContainer) return;
+
+    if (playerContainer.classList.contains('imc-inpage-pip')) {
+      playerContainer.classList.remove('imc-inpage-pip');
+      const pipBtn = playerContainer.querySelector('.imc-pip-toggle-btn');
+      if (pipBtn) pipBtn.classList.remove('imc-active');
+    } else {
+      playerContainer.classList.add('imc-inpage-pip');
+      const pipBtn = playerContainer.querySelector('.imc-pip-toggle-btn');
+      if (pipBtn) pipBtn.classList.add('imc-active');
+    }
+  }
+
   function injectYouTubeBottomControlBtn(moviePlayer, video) {
     if (!moviePlayer) return;
     const rightControls = moviePlayer.querySelector('.ytp-right-controls');
@@ -835,13 +879,13 @@
     if (!message) return false;
 
     if (message.action === 'TOGGLE_PIP') {
+      // Use minimizeFromPopup() — native requestPictureInPicture() is blocked by
+      // the browser when called outside a real user gesture (e.g. from a message
+      // handler). minimizeFromPopup() skips native PiP and goes straight to the
+      // YouTube miniplayer button or in-page overlay, both of which work fine.
       const video = document.querySelector('#movie_player video, .html5-main-video, video');
-      if (video) {
-        togglePictureInPicture(video);
-        sendResponse({ success: true });
-      } else {
-        sendResponse({ success: false, reason: 'No video element found' });
-      }
+      minimizeFromPopup(video);
+      sendResponse({ success: true });
       return true;
     }
 
