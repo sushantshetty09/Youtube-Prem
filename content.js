@@ -12,13 +12,45 @@
   let isAdBlockEnabledForSite = true;
 
   // ---------------------------------------------------------------------------
+  // Observer Control Helpers (Safe DOM Modifications)
+  // ---------------------------------------------------------------------------
+  let videoObserver = null;
+  let isCircuitBroken = false;
+
+  const OBSERVER_CONFIG = {
+    childList: true,
+    subtree: true,
+    attributes: false,
+    characterData: false
+  };
+
+  function withObserverPaused(fn) {
+    if (videoObserver && !isCircuitBroken) {
+      try {
+        videoObserver.disconnect();
+      } catch (e) {}
+    }
+    try {
+      fn();
+    } finally {
+      if (videoObserver && !isCircuitBroken && (document.body || document.documentElement)) {
+        try {
+          videoObserver.observe(document.body || document.documentElement, OBSERVER_CONFIG);
+        } catch (e) {}
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // 1. Instant CSS Injection Ad Hiding
   // ---------------------------------------------------------------------------
 
   const AD_CSS_RULES = `
     .ad-showing .ytp-ad-player-overlay,
+    .ad-showing .ytp-ad-player-overlay-layout,
     .ad-showing .ytp-ad-text,
     .ad-showing .ytp-ad-preview-text,
+    .ad-showing .ytp-ad-preview-container,
     .ad-showing .ytp-ad-message-container,
     .ad-showing .ytp-ad-overlay-container,
     .ytp-ad-skip-button-slot,
@@ -58,6 +90,11 @@
       width: 0 !important;
     }
 
+    /* Prevent click-through bubbling on PiP button elements */
+    .imc-pip-toggle-btn * {
+      pointer-events: none !important;
+    }
+
     /* In-Page Floating Picture-in-Picture (Same-Tab Overlay) */
     .imc-inpage-pip {
       position: fixed !important;
@@ -69,6 +106,7 @@
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75) !important;
       border-radius: 12px !important;
       overflow: hidden !important;
+      background: #000000 !important;
       transition: width 0.25s ease, height 0.25s ease, transform 0.25s ease !important;
     }
 
@@ -99,16 +137,20 @@
   function injectAdBlockStyles() {
     if (!isAdBlockEnabledForSite) return;
     if (document.getElementById('imc-adblock-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'imc-adblock-styles';
-    style.textContent = AD_CSS_RULES;
-    (document.head || document.documentElement).appendChild(style);
+    withObserverPaused(() => {
+      const style = document.createElement('style');
+      style.id = 'imc-adblock-styles';
+      style.textContent = AD_CSS_RULES;
+      (document.head || document.documentElement).appendChild(style);
+    });
   }
 
   function removeAdBlockStyles() {
     const style = document.getElementById('imc-adblock-styles');
     if (style) {
-      style.remove();
+      withObserverPaused(() => {
+        style.remove();
+      });
     }
   }
 
@@ -143,6 +185,17 @@
 
   function instantSkipYouTubeAd() {
     if (!isYouTube || !isAdBlockEnabledForSite) return;
+
+    // Dismiss YouTube anti-adblock modal if present
+    const adBlockDialog = document.querySelector('ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(.ytd-enforcement-message-view-model)');
+    if (adBlockDialog) {
+      const dismissBtn = adBlockDialog.querySelector('#dismiss-button, yt-button-renderer, button');
+      if (dismissBtn) {
+        try { dismissBtn.click(); } catch (e) {}
+      }
+      try { adBlockDialog.remove(); } catch (e) {}
+    }
+
     const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
     if (!moviePlayer) return;
 
@@ -150,6 +203,8 @@
       moviePlayer.classList.contains('ad-showing') ||
       moviePlayer.classList.contains('ad-interrupting') ||
       !!moviePlayer.querySelector('.ytp-ad-player-overlay') ||
+      !!moviePlayer.querySelector('.ytp-ad-player-overlay-layout') ||
+      !!moviePlayer.querySelector('.ytp-ad-preview-container') ||
       !!moviePlayer.querySelector('.ytp-ad-text');
 
     const video = moviePlayer.querySelector('video');
@@ -161,12 +216,15 @@
         } catch (e) {}
       }
 
+      // Comprehensive modern YouTube skip buttons
       const skipButtons = moviePlayer.querySelectorAll(`
         .ytp-ad-skip-button,
         .ytp-ad-skip-button-modern,
         .ytp-skip-ad-button,
         button.ytp-ad-skip-button-icon,
-        .ytp-ad-skip-button-text
+        button.ytp-ad-skip-button-modern,
+        .ytp-ad-skip-button-slot button,
+        [id^="skip-button:"]
       `);
 
       skipButtons.forEach((btn) => {
@@ -177,7 +235,7 @@
         }
       });
 
-      const closeOverlayButtons = moviePlayer.querySelectorAll('.ytp-ad-overlay-close-button');
+      const closeOverlayButtons = moviePlayer.querySelectorAll('.ytp-ad-overlay-close-button, .ytp-ad-text-overlay .ytp-ad-overlay-close-button');
       closeOverlayButtons.forEach((btn) => {
         if (btn && typeof btn.click === 'function') {
           try {
@@ -192,10 +250,12 @@
             video.muted = true;
             wasAdMuted = true;
           }
-          if (video.duration && isFinite(video.duration)) {
+          if (video.duration && isFinite(video.duration) && video.currentTime < video.duration - 0.05) {
             video.currentTime = video.duration - 0.01;
           }
-          video.playbackRate = 16.0;
+          if (video.playbackRate !== 16.0) {
+            video.playbackRate = 16.0;
+          }
         } catch (err) {
           console.warn('Instant video ad bypass error:', err);
         }
@@ -249,7 +309,7 @@
       document.querySelector('meta[property="og:image"]')?.content || '';
 
     const defaultSvgArt =
-      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="%236366f1"/><path d="M192 128l192 128-192 128V128z" fill="%23ffffff"/></svg>';
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="%23ff0000"/><path d="M192 128l192 128-192 128V128z" fill="%23ffffff"/></svg>';
 
     const artworkSrc = poster || defaultSvgArt;
 
@@ -374,9 +434,68 @@
     }
   }
 
-  function togglePictureInPicture(video) {
-    if (!video) return;
+  async function togglePictureInPicture(video) {
+    if (!video) {
+      video = document.querySelector('#movie_player video, .html5-main-video, video');
+    }
+    if (!video) {
+      console.warn('Integrated Media Controller: No video element found for Picture-in-Picture.');
+      return;
+    }
 
+    // Ensure Picture-in-Picture is allowed on this video
+    if (video.hasAttribute('disablepictureinpicture')) {
+      video.removeAttribute('disablepictureinpicture');
+    }
+    video.disablePictureInPicture = false;
+
+    // If already in native PiP, exit it
+    if (document.pictureInPictureElement) {
+      try {
+        await document.exitPictureInPicture();
+        return;
+      } catch (err) {
+        console.warn('Failed to exit native Picture-in-Picture:', err);
+      }
+    }
+
+    // 1. Try native Picture-in-Picture API
+    if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function') {
+      try {
+        await video.requestPictureInPicture();
+        return;
+      } catch (error) {
+        console.warn('Native Picture-in-Picture request failed:', error);
+      }
+    }
+
+    // 2. On YouTube: try YouTube native Miniplayer button (minimizes video to bottom corner)
+    if (isYouTube) {
+      const ytMiniplayerBtn = document.querySelector('.ytp-miniplayer-button');
+      if (ytMiniplayerBtn) {
+        try {
+          ytMiniplayerBtn.click();
+          return;
+        } catch (e) {}
+      }
+      const moviePlayer = document.getElementById('movie_player');
+      if (moviePlayer) {
+        try {
+          const keyEvt = new KeyboardEvent('keydown', {
+            key: 'i',
+            code: 'KeyI',
+            keyCode: 73,
+            which: 73,
+            bubbles: true,
+            cancelable: true
+          });
+          moviePlayer.dispatchEvent(keyEvt);
+          return;
+        } catch (e) {}
+      }
+    }
+
+    // 3. Fallback: In-page floating overlay
     const playerContainer = video.closest ? (video.closest('#movie_player') || video.closest('.html5-video-player') || video.parentElement) : video.parentElement;
     if (!playerContainer) return;
 
@@ -389,11 +508,6 @@
         pipBtn.classList.remove('imc-active');
       }
     } else {
-      // Exit any standard OS PiP if active
-      if (document.pictureInPictureElement) {
-        document.exitPictureInPicture().catch(() => {});
-      }
-
       playerContainer.classList.add('imc-inpage-pip');
       const pipBtn = playerContainer.querySelector('.imc-pip-toggle-btn');
       if (pipBtn) {
@@ -402,15 +516,73 @@
     }
   }
 
+  function injectYouTubeBottomControlBtn(moviePlayer, video) {
+    if (!moviePlayer) return;
+    const rightControls = moviePlayer.querySelector('.ytp-right-controls');
+    if (!rightControls || rightControls.querySelector('.imc-ytp-pip-button')) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ytp-button imc-ytp-pip-button';
+    btn.title = 'Picture-in-Picture / Minimize (P)';
+    btn.setAttribute('aria-label', 'Picture-in-Picture / Minimize (P)');
+    btn.innerHTML = `
+      <svg width="100%" height="100%" viewBox="0 0 36 36">
+        <path fill="#fff" d="M25,17 L17,17 L17,23 L25,23 L25,17 Z M29,25 L29,11 C29,9.9 28.1,9 27,9 L9,9 C7.9,9 7,9.9 7,11 L7,25 C7,26.1 7.9,27 9,27 L27,27 C28.1,27 29,26.1 29,25 Z M27,25 L9,25 L9,11 L27,11 L27,25 Z"/>
+      </svg>
+    `;
+    btn.style.width = '48px';
+    btn.style.height = '100%';
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.cursor = 'pointer';
+    btn.style.verticalAlign = 'top';
+
+    btn.addEventListener('click', async (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const targetVideo = moviePlayer.querySelector('video') || video;
+      await togglePictureInPicture(targetVideo);
+    });
+
+    const fsBtn = rightControls.querySelector('.ytp-fullscreen-button') || rightControls.lastElementChild;
+    if (fsBtn) {
+      rightControls.insertBefore(btn, fsBtn);
+    } else {
+      rightControls.appendChild(btn);
+    }
+  }
 
   function injectPipButton(video) {
     if (!document.pictureInPictureEnabled || !video) return;
 
-    // Do NOT inject inside YouTube miniplayer
-    if (video.closest && video.closest('ytd-miniplayer, .ytp-miniplayer, #miniplayer')) return;
+    // Do NOT inject inside miniplayers, preview hover cards, thumbnails, ads, or link wrappers
+    if (video.closest && (
+      video.closest('ytd-miniplayer, .ytp-miniplayer, #miniplayer') ||
+      video.closest('ytd-thumbnail, #inline-preview-player, ytd-video-preview, .ytd-moving-thumbnail-renderer') ||
+      video.closest('a') ||
+      video.closest('.ad-showing')
+    )) {
+      return;
+    }
+
+    // On YouTube, restrict injection strictly to the primary video player
+    if (isYouTube && !video.closest('#movie_player, .html5-video-player')) {
+      return;
+    }
 
     const parent = video.closest ? (video.closest('#movie_player') || video.closest('.html5-video-player') || video.parentElement) : (video.parentElement || video.parentNode);
     if (!parent) return;
+
+    if (parent.closest && parent.closest('a')) return;
+
+    // If on YouTube, also inject the bottom control bar button
+    if (isYouTube && parent.id === 'movie_player') {
+      injectYouTubeBottomControlBtn(parent, video);
+    }
 
     if (parent.querySelector('.imc-pip-toggle-btn')) return;
 
@@ -419,85 +591,91 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'imc-pip-toggle-btn';
-    button.title = 'Toggle Picture-in-Picture mode';
-    button.setAttribute('aria-label', 'Toggle Picture-in-Picture mode');
+    button.title = 'Picture-in-Picture / Minimize (P)';
+    button.setAttribute('aria-label', 'Picture-in-Picture / Minimize');
+    button.setAttribute('tabindex', '0');
     button.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-        <rect x="11" y="9" width="9" height="6" rx="1" fill="currentColor" opacity="0.4"/>
+      <svg width="20" height="14" viewBox="0 0 28 20" fill="none" style="pointer-events: none; flex-shrink: 0;">
+        <path d="M27.4 3.1c-.3-1.2-1.2-2.1-2.4-2.4C22.9 0 14 0 14 0S5.1 0 3 0.7C1.8 1 0.9 1.9 0.6 3.1 0 5.2 0 10 0 10s0 4.8 0.6 6.9c.3 1.2 1.2 2.1 2.4 2.4 2.1.7 11 .7 11 .7s8.9 0 11-.7c1.2-.3 2.1-1.2 2.4-2.4.6-2.1.6-6.9.6-6.9s0-4.8-.6-6.9z" fill="#FF0000"/>
+        <polygon points="11.2,14.3 18.5,10 11.2,5.7" fill="#FFFFFF"/>
       </svg>
-      <span>PiP</span>
+      <span style="pointer-events: none;">Minimize (P)</span>
     `;
 
     Object.assign(button.style, {
       position: 'absolute',
-      top: '12px',
-      right: '12px',
+      top: '16px',
+      right: '68px',
       zIndex: '2147483647',
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '6px',
-      padding: '6px 12px',
-      backgroundColor: 'rgba(15, 23, 42, 0.85)',
-      backdropFilter: 'blur(8px)',
-      color: '#ffffff',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '8px',
+      gap: '8px',
+      padding: '7px 14px',
+      backgroundColor: '#ffffff',
+      color: '#0f0f0f',
+      border: '1px solid rgba(0, 0, 0, 0.1)',
+      borderRadius: '20px',
       fontSize: '12px',
       fontWeight: '600',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       cursor: 'pointer',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-      transition: 'all 0.2s ease'
+      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+      transition: 'all 0.2s ease',
+      pointerEvents: 'auto',
+      userSelect: 'none'
     });
 
     button.addEventListener('mouseenter', () => {
-      button.style.backgroundColor = 'rgba(99, 102, 241, 0.9)';
+      button.style.backgroundColor = '#f2f2f2';
       button.style.transform = 'scale(1.05)';
     });
 
     button.addEventListener('mouseleave', () => {
       button.style.backgroundColor = button.classList.contains('imc-active')
-        ? 'rgba(99, 102, 241, 0.85)'
-        : 'rgba(15, 23, 42, 0.85)';
+        ? '#ffebee'
+        : '#ffffff';
       button.style.transform = 'scale(1)';
     });
 
-    const stopAndPrevent = (e) => {
+    // Stop pointer/mouse events from propagating to YouTube player background
+    // (Prevents pausing video or triggering link navigation, without canceling user activation)
+    ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'auxclick'].forEach((evtType) => {
+      button.addEventListener(evtType, (e) => {
+        if (e) {
+          e.stopPropagation();
+        }
+      }, { capture: true });
+    });
+
+    // Clean click listener that triggers Picture-in-Picture
+    button.addEventListener('click', async (e) => {
       if (e) {
         e.preventDefault();
         e.stopPropagation();
-        if (typeof e.stopImmediatePropagation === 'function') {
-          e.stopImmediatePropagation();
-        }
       }
-    };
-
-    ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick'].forEach((evtType) => {
-      button.addEventListener(evtType, stopAndPrevent, { capture: true });
-    });
-
-    button.addEventListener('click', (e) => {
-      stopAndPrevent(e);
-      togglePictureInPicture(video);
+      const targetVideo = (parent && parent.querySelector('video')) || video || document.querySelector('#movie_player video, .html5-main-video, video');
+      await togglePictureInPicture(targetVideo);
     }, { capture: true });
 
     const computedPos = window.getComputedStyle(parent).position;
     if (computedPos === 'static') {
       parent.style.position = 'relative';
     }
-    parent.appendChild(button);
+
+    withObserverPaused(() => {
+      parent.appendChild(button);
+    });
 
     video.addEventListener('enterpictureinpicture', () => {
       button.classList.add('imc-active');
-      button.style.backgroundColor = 'rgba(99, 102, 241, 0.85)';
-      button.style.borderColor = '#6366f1';
+      button.style.backgroundColor = '#ffebee';
+      button.style.borderColor = '#ff0000';
     });
 
     video.addEventListener('leavepictureinpicture', () => {
       button.classList.remove('imc-active');
-      button.style.backgroundColor = 'rgba(15, 23, 42, 0.85)';
-      button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      button.style.backgroundColor = '#ffffff';
+      button.style.borderColor = 'rgba(0, 0, 0, 0.1)';
     });
   }
 
@@ -523,8 +701,6 @@
     }
   }
 
-  initMediaController();
-
   // ---------------------------------------------------------------------------
   // 5. Robust Debounced & Circuit-Protected MutationObserver
   // ---------------------------------------------------------------------------
@@ -543,83 +719,123 @@
   }
 
   const debouncedInit = debounce(() => {
-    if (!videoObserver) return;
-    
-    try {
-      videoObserver.disconnect();
-    } catch (e) {}
+    if (isCircuitBroken) return;
 
-    const nodesToProcess = Array.from(pendingNodes);
-    pendingNodes.clear();
+    withObserverPaused(() => {
+      const nodesToProcess = Array.from(pendingNodes);
+      pendingNodes.clear();
 
-    nodesToProcess.forEach((node) => {
-      initMediaController(node);
+      nodesToProcess.forEach((node) => {
+        if (!node || node.nodeType !== 1) return;
+        if (node.matches && node.matches('video')) {
+          setupMediaSession(node);
+          injectPipButton(node);
+        }
+        if (node.querySelectorAll) {
+          const videos = node.querySelectorAll('video');
+          videos.forEach((v) => {
+            setupMediaSession(v);
+            injectPipButton(v);
+          });
+        }
+      });
     });
-
-    // Fallback scan document videos
-    const videos = document.querySelectorAll('video');
-    videos.forEach((video) => {
-      if (video.dataset.pipButtonInjected !== 'true' || video.dataset.mediaSessionInjected !== 'true') {
-        setupMediaSession(video);
-        injectPipButton(video);
-      }
-    });
-
-    if (document.body && videoObserver) {
-      try {
-        videoObserver.observe(document.body, { childList: true, subtree: true });
-      } catch (e) {}
-    }
   }, 200);
 
-  let videoObserver = new MutationObserver((mutations) => {
-    const now = Date.now();
-    if (now - lastResetTime > 1000) {
-      mutationCount = 0;
-      lastResetTime = now;
-    }
-    mutationCount++;
+  function startObserver() {
+    if (isCircuitBroken || videoObserver) return;
 
-    if (mutationCount > MAX_MUTATIONS_PER_SEC) {
-      console.warn('Integrated Media Controller: MutationObserver circuit breaker triggered (>50 mutations/sec). Disconnecting observer to prevent browser hang.');
-      if (videoObserver) {
-        videoObserver.disconnect();
-        videoObserver = null;
+    videoObserver = new MutationObserver((mutations) => {
+      const now = Date.now();
+      if (now - lastResetTime > 1000) {
+        mutationCount = 0;
+        lastResetTime = now;
       }
-      return;
-    }
+      mutationCount++;
 
-    let hasAddedElements = false;
-    for (let i = 0; i < mutations.length; i++) {
-      const added = mutations[i].addedNodes;
-      if (added && added.length > 0) {
-        for (let j = 0; j < added.length; j++) {
-          if (added[j].nodeType === 1) {
-            pendingNodes.add(added[j]);
-            hasAddedElements = true;
+      if (mutationCount > MAX_MUTATIONS_PER_SEC) {
+        console.warn('Integrated Media Controller: MutationObserver circuit breaker triggered (>50 mutations/sec). Disconnecting observer to prevent browser hang.');
+        isCircuitBroken = true;
+        if (videoObserver) {
+          videoObserver.disconnect();
+          videoObserver = null;
+        }
+        pendingNodes.clear();
+        return;
+      }
+
+      let hasAddedElements = false;
+      for (let i = 0; i < mutations.length; i++) {
+        const added = mutations[i].addedNodes;
+        if (added && added.length > 0) {
+          for (let j = 0; j < added.length; j++) {
+            if (added[j].nodeType === 1) {
+              pendingNodes.add(added[j]);
+              hasAddedElements = true;
+            }
           }
         }
       }
-    }
 
-    if (hasAddedElements) {
-      debouncedInit();
-    }
-  });
+      if (hasAddedElements) {
+        debouncedInit();
+      }
+    });
 
-  if (document.body) {
-    videoObserver.observe(document.body, { childList: true, subtree: true });
+    const targetNode = document.body || document.documentElement;
+    if (targetNode) {
+      try {
+        videoObserver.observe(targetNode, OBSERVER_CONFIG);
+      } catch (e) {
+        console.warn('Failed to start MutationObserver:', e);
+      }
+    }
+  }
+
+  // Initial setup of media controller
+  initMediaController();
+  startObserver();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initMediaController();
+      startObserver();
+    }, { once: true });
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Message Listener
+  // 6. Keyboard Shortcut ('P' for Minimize / Picture-in-Picture)
+  // ---------------------------------------------------------------------------
+
+  document.addEventListener('keydown', (e) => {
+    const active = document.activeElement;
+    if (active && (
+      active.tagName === 'INPUT' ||
+      active.tagName === 'TEXTAREA' ||
+      active.isContentEditable ||
+      active.getAttribute('role') === 'textbox'
+    )) {
+      return;
+    }
+
+    if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const video = document.querySelector('#movie_player video, .html5-main-video, video');
+      if (video) {
+        e.preventDefault();
+        togglePictureInPicture(video);
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // 7. Message Listener
   // ---------------------------------------------------------------------------
 
   extensionAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message) return false;
 
     if (message.action === 'TOGGLE_PIP') {
-      const video = document.querySelector('video');
+      const video = document.querySelector('#movie_player video, .html5-main-video, video');
       if (video) {
         togglePictureInPicture(video);
         sendResponse({ success: true });
@@ -643,5 +859,3 @@
     return false;
   });
 })();
-
-

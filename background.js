@@ -22,7 +22,7 @@ extensionAPI.runtime.onInstalled.addListener(() => {
       siteOverrides: (result && result.siteOverrides) || {}
     };
     extensionAPI.storage.local.set(initialState, () => {
-      console.log('Integrated Media Controller initialization complete.');
+      console.log('Integrated Media Controller initialisation complete.');
     });
   });
 });
